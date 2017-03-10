@@ -5,8 +5,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 
+import com.dglabs.hc595_led_matrixx_driver.LEDMatrix;
 import com.dglabs.my9221_led_driver.LEDBar;
-import com.dglabs.androidthings.example.driver.LEDMatrix;
 import com.dglabs.androidthings.example.sound.MusicNotes;
 import com.google.android.things.contrib.driver.pwmspeaker.Speaker;
 import com.google.android.things.contrib.driver.tm1637.NumericDisplay;
@@ -80,6 +80,7 @@ public class MainActivity extends Activity {
             mSpeaker.stop(); // in case the PWM pin was enabled already
 
             mLedMatrix = new LEDMatrix(LED_MATRIX_RCLK_PIN_NAME, LED_MATRIX_SRCLK_PIN_NAME, LED_MATRIX_DI_PIN_NAME);
+            mLedMatrix.setFlipVertical(true);
 
             /*mLedBar = new LEDBar(LED_BAR_DI_PIN_NAME, LED_BAR_DCLK_PIN_NAME, 10);
             mLedBar.clear();*/
@@ -95,6 +96,7 @@ public class MainActivity extends Activity {
     }
 
     int bitCount = 0;
+
 
     // Step 4. Register an event callback.
     private GpioCallback mCallback = new GpioCallback() {
@@ -118,10 +120,10 @@ public class MainActivity extends Activity {
                 }
             }
 
-            if (mLedMatrix != null) {
+            /*if (mLedMatrix != null) {
                 mLedMatrix.display(LEDMatrix.data[bitCount++]);
                 bitCount %= LEDMatrix.data.length;
-            }
+            }*/
 
             /*try {
                 // displays "42"
@@ -208,6 +210,9 @@ public class MainActivity extends Activity {
         }
     }
 
+    int charIndex = 0;
+    static final String SAMPLE = "Red Fox jumping";
+
     private Runnable mBlinkRunnable = new Runnable() {
         @Override
         public void run() {
@@ -219,6 +224,12 @@ public class MainActivity extends Activity {
             try {
                 // Step 3. Toggle the LED state
                 mLedGpio.setValue(!mLedGpio.getValue());
+
+                if (mLedMatrix != null) {
+                    char c = SAMPLE.charAt(charIndex++);
+                    charIndex %= SAMPLE.length();
+                    mLedMatrix.display(c);
+                }
 
                 // Step 4. Schedule another event after delay.
                 mHandler.postDelayed(mBlinkRunnable, INTERVAL_BETWEEN_BLINKS_MS);

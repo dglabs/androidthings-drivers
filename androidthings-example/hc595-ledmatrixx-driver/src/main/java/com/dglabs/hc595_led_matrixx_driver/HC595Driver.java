@@ -1,4 +1,4 @@
-package com.dglabs.androidthings.example.driver;
+package com.dglabs.hc595_led_matrixx_driver;
 
 import android.os.Process;
 import android.support.annotation.NonNull;
@@ -14,34 +14,18 @@ import java.io.IOException;
  * Created by dennis on 10.03.17.
  */
 
-/**
- * 8*8 LED Matrix by cascading two 74HC595
- */
-public class LEDMatrix implements Closeable {
-
-    private static final String TAG = LEDMatrix.class.getSimpleName();
-
-    public static final int data[][] = {
-            { 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 }, //NULL
-            { 0x00,0x00,0x3C,0x42,0x42,0x3C,0x00,0x00 }, //0
-            { 0x00,0x00,0x00,0x44,0x7E,0x40,0x00,0x00 }, //1
-            { 0x00,0x00,0x44,0x62,0x52,0x4C,0x00,0x00 }, //2
-            { 0x00,0x00,0x78,0x14,0x12,0x14,0x78,0x00 }, //A
-            { 0x00,0x00,0x60,0x90,0x90,0xFE,0x00,0x00 }, //d
-            { 0x00,0x00,0x1C,0x2A,0x2A,0x2A,0x24,0x00 }, //e
-            { 0x00,0x00,0x1C,0x2A,0x2A,0x2A,0x24,0x00 }, //e
-            { 0x00,0x00,0x7E,0x12,0x12,0x0C,0x00,0x00 }, //p
-            { 0x00,0x00,0x08,0x7E,0x88,0x40,0x00,0x00 }, //t
-            { 0x3C,0x42,0x95,0xB1,0xB1,0x95,0x42,0x3C }, //:)
-            { 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 } //NULL
-    };
+public class HC595Driver implements Closeable {
+    private static final String TAG = HC595Driver.class.getSimpleName();
 
     private static final int tab [] = {0xfe,0xfd,0xfb,0xf7,0xef,0xdf,0xbf,0x7f};
 
     private Gpio RCLK, SRCLK, DI;
 
     private boolean stopping = false;
-    private final int [] display_buffer = new int [tab.length];
+    private volatile int [] display_buffer = new int [tab.length];
+
+    private boolean flipVertical = false;
+    private boolean flipHorizontal = false;
 
     private Thread refreshThread = new Thread() {
         @Override
@@ -49,19 +33,13 @@ public class LEDMatrix implements Closeable {
             final int [] db = new int [tab.length];
             while (!stopping) {
                 synchronized (display_buffer) {
-                    for (int i = 0; i < display_buffer.length; i++) db[i] = display_buffer[i];
+                    for (int i = 0; i < display_buffer.length; i++)
+                        db[i] = display_buffer[flipHorizontal ? i : display_buffer.length - i -1];
                 }
                 try {
                     write(db);
                 }
                 catch (IOException ex) { break; }
-                /*if (!stopping)
-                    try {
-                        Thread.sleep(1);
-                    }
-                    catch (InterruptedException ex) {
-                        break;
-                    }*/
             }
         }
     };
@@ -73,7 +51,7 @@ public class LEDMatrix implements Closeable {
      * @param DI_pin serial data input
      * @throws IOException
      */
-    public LEDMatrix(@NonNull String RCLK_pin, @NonNull String SRCLK_pin, @NonNull String DI_pin) throws IOException {
+    public HC595Driver(@NonNull String RCLK_pin, @NonNull String SRCLK_pin, @NonNull String DI_pin) throws IOException {
         PeripheralManagerService service = new PeripheralManagerService();
         RCLK = service.openGpio(RCLK_pin); RCLK.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
         SRCLK = service.openGpio(SRCLK_pin); SRCLK.setDirection(Gpio.DIRECTION_OUT_INITIALLY_LOW);
@@ -102,9 +80,11 @@ public class LEDMatrix implements Closeable {
     private void hc595WriteByte(int dat) throws IOException
     {
         for(int i=0; i < 8; i++) {
-            DI.setValue(((dat << i) & 0x80) != 0);
+            if (flipVertical)
+                DI.setValue(((dat >> i) & 0x01) != 0);
+            else
+                DI.setValue(((dat << i) & 0x80) != 0);
             SRCLK.setValue(true);
-            // delay(1);
             SRCLK.setValue(false);
         }
     }
@@ -112,13 +92,28 @@ public class LEDMatrix implements Closeable {
     private void hc595SetAddress(int address) throws IOException {
         hc595WriteByte(address);
         RCLK.setValue(true);
-        // delay(1);
         RCLK.setValue(false);
     }
 
     private static final int [] EMPTY = {0, 0, 0, 0, 0, 0, 0, 0};
     public void clear() throws IOException {
         write(EMPTY);
+    }
+
+    public boolean isFlipVertical() {
+        return flipVertical;
+    }
+
+    public void setFlipVertical(boolean flipVertical) {
+        this.flipVertical = flipVertical;
+    }
+
+    public boolean isFlipHorizontal() {
+        return flipHorizontal;
+    }
+
+    public void setFlipHorizontal(boolean flipHorizontal) {
+        this.flipHorizontal = flipHorizontal;
     }
 
     /**
@@ -139,13 +134,8 @@ public class LEDMatrix implements Closeable {
      * @throws IOException
      */
     private void write(@NonNull int [] data) throws IOException {
-        try {
-            for (int i = 0; i < tab.length && i < data.length; i++) {
-                write(data[i], i);
-                Thread.sleep(2);
-            }
-        }
-        catch (InterruptedException ex) {}
+        for (int i = 0; i < tab.length; i++)
+            write(data[i], i);
     }
 
     /**
@@ -157,4 +147,5 @@ public class LEDMatrix implements Closeable {
             for (int i = 0; i < display_buffer.length && i < data.length; i++) display_buffer[i] = data[i];
         }
     }
+
 }
