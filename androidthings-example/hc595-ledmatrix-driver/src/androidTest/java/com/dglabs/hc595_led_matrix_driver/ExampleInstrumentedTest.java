@@ -1,4 +1,4 @@
-package com.dglabs.hc595_led_matrixx_driver;
+package com.dglabs.hc595_led_matrix_driver;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

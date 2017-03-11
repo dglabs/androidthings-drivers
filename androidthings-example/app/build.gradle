@@ -25,7 +25,7 @@ dependencies {
     compile 'com.google.android.things.contrib:driver-tm1637:0.1'
 
     compile project (":my9221-led-driver")
-    compile project (":hc595-ledmatrixx-driver")
+    compile project (':hc595-ledmatrix-driver')
 
     compile fileTree(dir: 'libs', include: ['*.jar'])
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {

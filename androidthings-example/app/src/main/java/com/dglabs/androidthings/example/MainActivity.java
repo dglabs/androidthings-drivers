@@ -5,7 +5,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 
-import com.dglabs.hc595_led_matrixx_driver.LEDMatrix;
+import com.dglabs.hc595_led_matrix_driver.LEDMatrix;
 import com.dglabs.my9221_led_driver.LEDBar;
 import com.dglabs.androidthings.example.sound.MusicNotes;
 import com.google.android.things.contrib.driver.pwmspeaker.Speaker;
@@ -37,6 +37,10 @@ public class MainActivity extends Activity {
     private static final String LED_MATRIX_DI_PIN_NAME = "BCM27";
     private static final String LED_MATRIX_RCLK_PIN_NAME = "BCM5";
     private static final String LED_MATRIX_SRCLK_PIN_NAME = "BCM22";
+
+    private static final String LED_SEG7_DI_PIN_NAME = "BCM5";
+    private static final String LED_SEG7_CLK_PIN_NAME = "BCM22";
+    private static final String LED_SEG7_STB_PIN_NAME = "BCM27";
 
     private Handler mHandler = new Handler();
 
