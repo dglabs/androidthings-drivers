@@ -8,13 +8,15 @@ import android.util.Log;
 import com.dglabs.hc595_led_matrix_driver.LEDMatrix;
 import com.dglabs.my9221_led_driver.LEDBar;
 import com.dglabs.androidthings.example.sound.MusicNotes;
+import com.dglabs.tm1838_driver.TM1838Driver;
 import com.google.android.things.contrib.driver.pwmspeaker.Speaker;
-import com.google.android.things.contrib.driver.tm1637.NumericDisplay;
 import com.google.android.things.pio.Gpio;
 import com.google.android.things.pio.GpioCallback;
 import com.google.android.things.pio.PeripheralManagerService;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class MainActivity extends Activity {
 
@@ -38,7 +40,7 @@ public class MainActivity extends Activity {
     private static final String LED_MATRIX_RCLK_PIN_NAME = "BCM5";
     private static final String LED_MATRIX_SRCLK_PIN_NAME = "BCM22";
 
-    private static final String LED_SEG7_DI_PIN_NAME = "BCM5";
+    private static final String LED_SEG7_DIO_PIN_NAME = "BCM5";
     private static final String LED_SEG7_CLK_PIN_NAME = "BCM22";
     private static final String LED_SEG7_STB_PIN_NAME = "BCM27";
 
@@ -46,13 +48,13 @@ public class MainActivity extends Activity {
 
     private Gpio mLedGpio;
     private Gpio mButtonGpio;
-    private Gpio mDisplaySelect;
 
     private Speaker mSpeaker;
     private LEDBar mLedBar;
     private LEDMatrix mLedMatrix;
+    private TM1838Driver mSegDisplay;
 
-    NumericDisplay mDisplay;
+    private long startTime;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +67,8 @@ public class MainActivity extends Activity {
         Log.d(TAG, "Available SPI: " + service.getSpiBusList());
         Log.d(TAG, "Available PWM: " + service.getPwmList());
         Log.d(TAG, "Available UART: " + service.getUartDeviceList());
+
+        startTime = System.currentTimeMillis();
 
         try {
             mLedGpio = service.openGpio(GPIO_LED_PIN_NAME);
@@ -83,8 +87,12 @@ public class MainActivity extends Activity {
             mSpeaker = new Speaker(BUZZER_PIN_NAME);
             mSpeaker.stop(); // in case the PWM pin was enabled already
 
-            mLedMatrix = new LEDMatrix(LED_MATRIX_RCLK_PIN_NAME, LED_MATRIX_SRCLK_PIN_NAME, LED_MATRIX_DI_PIN_NAME);
-            mLedMatrix.setFlipVertical(true);
+            //mLedMatrix = new LEDMatrix(LED_MATRIX_RCLK_PIN_NAME, LED_MATRIX_SRCLK_PIN_NAME, LED_MATRIX_DI_PIN_NAME);
+            //mLedMatrix.setFlipVertical(true);
+
+            //mSegDisplay = new TM1838Driver(LED_SEG7_CLK_PIN_NAME, LED_SEG7_STB_PIN_NAME
+            //        , LED_SEG7_DIO_PIN_NAME, TM1838Driver.BRIGHTNESS_LOW);
+            mSegDisplay = new TM1838Driver("SPI0.0", TM1838Driver.BRIGHTNESS_MED);
 
             /*mLedBar = new LEDBar(LED_BAR_DI_PIN_NAME, LED_BAR_DCLK_PIN_NAME, 10);
             mLedBar.clear();*/
@@ -100,7 +108,7 @@ public class MainActivity extends Activity {
     }
 
     int bitCount = 0;
-
+    boolean display = false;
 
     // Step 4. Register an event callback.
     private GpioCallback mCallback = new GpioCallback() {
@@ -111,9 +119,13 @@ public class MainActivity extends Activity {
             mHandler.removeCallbacks(mBlinkRunnable);
             mHandler.removeCallbacks(mPlaybackRunnable);
 
-            //mHandler.post(mPlaybackRunnable);
-            // Step 4. Repeat using a handler.
-            mHandler.post(mBlinkRunnable);
+            if (!display) {
+                //mHandler.post(mPlaybackRunnable);
+                // Step 4. Repeat using a handler.
+                mHandler.post(mBlinkRunnable);
+            }
+
+            display = !display;
 
             if (mLedBar != null) {
                 try {
@@ -128,6 +140,14 @@ public class MainActivity extends Activity {
                 mLedMatrix.display(LEDMatrix.data[bitCount++]);
                 bitCount %= LEDMatrix.data.length;
             }*/
+
+            if (mSegDisplay != null) {
+                try {
+                    mSegDisplay.display(Integer.toHexString(++bitCount), 0);
+                } catch (IOException ex) {
+                    Log.e(TAG, "Error write to 7-seg LED", ex);
+                }
+            }
 
             /*try {
                 // displays "42"
@@ -192,23 +212,22 @@ public class MainActivity extends Activity {
             }
         }
 
-        if (mDisplay != null) {
-            try {
-                mDisplaySelect.setValue(false);
-                mDisplaySelect.close();
-                mDisplay.close();
-            } catch (IOException e) {
-                mDisplay = null;
-                // error closing display
-            }
-        }
-
         if (mLedMatrix != null) {
             try {
                 mLedMatrix.clear();
                 mLedMatrix.close();
             } catch (IOException e) {
                 mLedMatrix = null;
+            }
+
+        }
+
+        if (mSegDisplay != null) {
+            try {
+                mSegDisplay.clear();
+                mSegDisplay.close();
+            } catch (IOException e) {
+                mSegDisplay = null;
             }
 
         }
@@ -233,6 +252,17 @@ public class MainActivity extends Activity {
                     char c = SAMPLE.charAt(charIndex++);
                     charIndex %= SAMPLE.length();
                     mLedMatrix.display(c);
+                }
+
+
+                if (mSegDisplay != null) {
+                    try {
+                        Date d = new Date(System.currentTimeMillis() - startTime);
+                        final SimpleDateFormat format = new SimpleDateFormat("mmss");
+                        mSegDisplay.display(format.format(d), 1);
+                    } catch (IOException ex) {
+                        Log.e(TAG, "Error write to 7-seg LED", ex);
+                    }
                 }
 
                 // Step 4. Schedule another event after delay.
